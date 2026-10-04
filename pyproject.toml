@@ -1,0 +1,15 @@
+[project]
+name = "airlock"
+version = "0.1.0"
+description = "Run AI coding agents in a disposable git worktree; review the diff before anything touches your tree."
+requires-python = ">=3.11"
+
+[project.scripts]
+airlock = "airlock:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["airlock", "airlock_proxy", "airlock_ui"]
