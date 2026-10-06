@@ -2,6 +2,35 @@
 
 Run an AI coding agent in a sandboxed copy of your repo, then review its diff before anything touches your working tree.
 
+## The problem
+
+AI coding agents like Claude Code, Codex and Cursor are most useful when they work on their own. But letting one run unattended means giving it everything you have:
+
+- **Your secrets.** It can read `~/.ssh`, cloud credentials and gitignored `.env` files.
+- **The network.** Anything it reads can be sent anywhere.
+- **Your working tree.** It edits your real files as it goes, so a bad run leaves a mess.
+
+The agent also takes instructions from what it reads. A malicious comment in a dependency or a doc page can turn into a command running as you (prompt injection).
+
+So today the choice is to babysit every action, or to trust the agent completely.
+
+## How Airlock solves it
+
+Airlock lets you use an agent without trusting it.
+
+| Risk | What Airlock does |
+|---|---|
+| Agent reads your secrets | It works on a copy of your tracked files only, inside a container. Your home directory, keys and untracked files aren't there. |
+| Agent leaks your code or data | The container has no internet. Its only route out is a proxy to the model API, plus any hosts you explicitly allow. |
+| Agent steals your API key | The key never enters the container. The proxy adds it to requests on the way out. |
+| Agent plants git hooks or config that run later | The copy has no `.git` folder, so there's nothing to plant. Only a reviewed patch comes back. |
+| Agent changes something it shouldn't | Path rules mark files as allowed, needing explicit confirmation, or never applied. CI config, dependency files and the rules file itself are always flagged. |
+| A bad change lands | Nothing touches your repo until you approve the diff, in the terminal or file by file and hunk by hunk in a browser view. Every run is logged, and `airlock undo` reverts one. |
+
+Safety doesn't depend on the model behaving. Everything that enforces it (the container, the network proxy, the rules and the review step) is ordinary code you can read and test.
+
+## Quick start
+
 ```bash
 pip install -e .
 airlock run -- claude -p "add type hints to utils.py" --dangerously-skip-permissions
@@ -19,11 +48,11 @@ When the agent exits you get the diff, with warnings for deletions, symlinks and
 
 - **y** applies it atomically with `git apply`.
 - Anything else discards it.
-- If the patch conflicts with your uncommitted edits, nothing changes and the patch is saved under `.git/airlock/`.
+- If the patch conflicts with your uncommitted edits, nothing changes and the patch is saved under `.git/airlock/runs/`.
 
 ## Setup
 
-1. Install Docker. The agent image builds itself on first run. To pick up a newer Claude Code, run `docker rmi airlock-agent`.
+1. Install Docker. The agent image builds itself on first run. To pick up a newer Claude Code, delete it with `docker image rm $(docker images -q airlock-agent)`, and the next run rebuilds it.
 2. Put your Anthropic API key in `~/.airlock/anthropic_api_key` (one line). Airlock reads it only to hand it to the proxy. It stays out of your environment and out of every repo.
 
 ## Policy
@@ -88,6 +117,6 @@ Undo is all-or-nothing. If you've since edited the same lines, it changes nothin
 - `--ui`: review in your browser instead of the terminal. You get a side-by-side diff and can tick individual files and hunks; only the ticked ones are applied.
 - `--model NAME`: the model the agent uses by default. The default is `haiku`, the cheapest. To change the default permanently, set `AIRLOCK_MODEL` (e.g. `export AIRLOCK_MODEL=sonnet` in `~/.bashrc`). A `--model` flag passed to `claude` itself still wins.
 - `--allow-host HOST`: allow HTTPS to `HOST` for this run, e.g. `--allow-host registry.npmjs.org` for `npm install`. PyPI needs both `pypi.org` and `files.pythonhosted.org`. Every allowed host is a possible exfiltration channel, so add only what the run needs.
-- `--no-sandbox`: run the agent directly on the host (v1 mode). The diff review still applies, but the agent can read anything you can.
+- `--no-sandbox`: run the agent directly on the host, without Docker. The diff review still applies, but the agent can read anything you can.
 
 Tests: `python test_airlock.py`. The sandbox test needs Docker and internet access.
