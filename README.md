@@ -2,6 +2,9 @@
 
 Run an AI coding agent in a sandboxed copy of your repo, then review its diff before anything touches your working tree.
 
+## Demo
+https://github.com/user-attachments/assets/e16d5be4-38e4-4e11-8742-47f0d12d7da3
+
 ## The problem
 
 AI coding agents like Claude Code, Codex and Cursor are most useful when they work on their own. But letting one run unattended means giving it everything you have:
